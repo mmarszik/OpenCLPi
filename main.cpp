@@ -285,20 +285,50 @@ static std::vector<utyp64> versionOpenCL(
     return sums;
 }
 
-constexpr utyp32 DIM=3;
+constexpr utyp32 DIM = 3;
 
+//Random shot
 static utyp64 inSphere20( Rnd4Lin &rnd ) {
-    cutyp64 MAX  = 0x7FFFFFFFull;          //Max random coordinate of the point.
-    cutyp64 MAX2 = 0x3FFFFFFF00000001ull;  //Max square.
-    utyp64 sum = 0;
-    for( utyp32 i=0 ; i<DIM && sum <= MAX2 ; i++ ) {
-        cutyp64 v = rnd() & MAX;
-        sum += v * v;
-    }
+    static cutyp64 MAX  = 0xFFFFFFFull;           //Max random coordinate of the point.
+    static cutyp64 MAX2 = 0xFFFFFFE0000001ull;    //Max square.
+
+    utyp64 tmp = rnd() & MAX;
+    utyp64 sum = tmp * tmp;
+
+    tmp = rnd() & MAX;
+    sum += tmp * tmp;
+
+    tmp = rnd() & MAX;
+    sum += tmp * tmp;
+
     return sum <= MAX2;
 }
 
-//Volumen of the sphere sum / loops * 1024
+// v = 4/3 * pi * r^3
+// r==1
+// v = 4/3 * pi
+// v * 3/4 = pi
+
+static void computePi(
+    const std::vector<utyp64> &sums,
+    cutyp64                   loops
+) {
+    utyp64 sum = 0;
+    for( utyp32 i=0 ; i<sums.size() ; i++ ) {
+        sum += sums[i];
+    }
+    using FTYPE = long double;
+    cutyp32 prec = std::numeric_limits<FTYPE>::digits10;
+    std::cout << "sum: " << sum << std::endl;
+    FTYPE pi = sum;
+    pi /= sums.size() * loops;
+    pi *= pow( (FTYPE)2 , DIM );
+    pi = pi * 3 / 4;
+    std::cout << "pi:  " << std::setprecision(prec) << std::setw(2+prec) << pi << std::endl;
+}
+
+
+//Volumen of the sphere
 static utyp64 sumInSphere( cutyp64 seed , cutyp64 loops ) {
     Rnd4Lin rnd(seed);
     utyp64 sum = 0;
@@ -337,51 +367,6 @@ static std::vector<utyp64> versionOneThread(
     }
     elapsedTime = std::chrono::steady_clock::now() - start;
     return sums;
-}
-
-
-//v=pi*r^2
-//pi=v/r^2
-
-// v = 4/3 * pi * r^3
-// v / r^3 = 4/3 * pi
-// v / r^3 * 3 / 4 = pi
-
-// v = pi^2 / 2 * r^4
-// r==1
-// v = pi^2 / 2
-// v * 2 = pi^2
-// (v * 2) ^ 0.5 = pi
-
-// v = pi^5 / 120 * r^10
-// r == 1
-// v = pi ^ 5 / 120
-// v * 120 = pi ^ 5
-// (v * 120)^(1/5) = pi
-
-// v = pi^10 / 3628800 * r^20
-// r == 1
-// v = pi ^ 10 / 3628800
-// v * 3628800 = pi ^ 10
-// (v * 3628800)^(1/10) = pi
-
-
-static void computePi(
-    const std::vector<utyp64> &sums,
-    cutyp64                   loops
-) {
-    utyp64 sum = 0;
-    for( utyp32 i=0 ; i<sums.size() ; i++ ) {
-        sum += sums[i];
-    }
-    using FTYPE = long double;
-    cutyp32 prec = std::numeric_limits<FTYPE>::digits10;
-    std::cout << "sum: " << sum << std::endl;
-    FTYPE pi = sum;
-    pi /= sums.size() * loops;
-    pi *= pow( (FTYPE)2 , DIM );
-    pi = pow( pi * 3 / 4 , (FTYPE)1.0/1.0 );
-    std::cout << "pi:  " << std::setprecision(prec) << std::setw(2+prec) << pi << std::endl;
 }
 
 int main(int argc, char *argv[]) {
